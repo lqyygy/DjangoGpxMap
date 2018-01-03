@@ -5,6 +5,6 @@
 环境：基于Django框架，地图使用的百度地图API，数据库使用PosgGIS!  </p>
 </p>
 使用方法： </p>
-> cd .\DjangoGpxMap 
-> python manage.py runserver  
+> cd .\DjangoGpxMap  </p>
+> python manage.py runserver   </p>
 访问：http://127.0.0.1:8000/
