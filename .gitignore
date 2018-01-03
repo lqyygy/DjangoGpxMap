@@ -102,3 +102,4 @@ ENV/
 
 # Key
 /key
+.key
