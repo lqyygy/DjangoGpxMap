@@ -40,9 +40,6 @@ function initialize() {
 	geocoder = new BMap.Geocoder();
 }
 
-
-
-
 {% for waypoint in waypoints %}
 waypointByID[{{waypoint.id}}] = {
     name: "{{waypoint.name}}",
