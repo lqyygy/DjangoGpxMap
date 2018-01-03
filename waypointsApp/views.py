@@ -64,6 +64,12 @@ def search(request):
     )), mimetype='application/json')
 
 def upload(request):
+    'Delete all waypoints'
+	# todo
+	#Waypoint.clear()
+	#return HttpResponse()
+
+def upload(request):
     'Upload waypoints'
     # If the form contains an upload,
     if 'gpx' in request.FILES:
