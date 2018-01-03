@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=eKNIoGMmFEyhWVHqHzpnsidzUFoXBM5H"></script>
+<script src="http://code.jquery.com/jquery-1.4.4.min.js"></script>
+
+<form enctype="multipart/form-data" method="post" action="{% url 'waypoints-upload' %}">
+    {% csrf_token %}
+    <input type=file name=gpx>
+    <input type=submit value='上传GPX数据'>
+</form>
+
+<script>
+
+
+
+var map, marker, waypointByID = {};
+var currentObject;
+var map;
+var geocoder;
+
+
+
+function initialize() {
+	// 百度地图API功能
+	map = new BMap.Map("map");    // 创建Map实例
+	map.centerAndZoom(new BMap.Point(118.8, 32), 12);  // 初始化地图,设置中心点坐标和地图级别
+	//添加地图类型控件
+	map.addControl(new BMap.MapTypeControl({
+		mapTypes:[
+            BMAP_NORMAL_MAP,
+            BMAP_HYBRID_MAP
+        ]}));	  
+	map.setCurrentCity("南京");          // 设置地图显示的城市 此项是必须设置的
+	map.enableScrollWheelZoom(true);     //开启鼠标滚轮缩放
+	
+	geocoder = new BMap.Geocoder();
+}
+
+
+
+
+{% for waypoint in waypoints %}
+waypointByID[{{waypoint.id}}] = {
+    name: "{{waypoint.name}}",
+    lat: {{waypoint.geometry.y}},
+    lng: {{waypoint.geometry.x}}
+};
+{% endfor %}
+
+
+
+$(document).ready(function () {
+
+function searchWaypoints() {
+    geocoder.geocode({
+        'address': $('#address').val()
+    }, function(results, status) {
+        if (status == BMap.GeocoderStatus.OK) {
+            var position = results[0].geometry.location;
+            $.get("{% url 'waypoints-search' %}", {
+                lat: position.lat(),
+                lng: position.lng()
+            }, function (data) {
+                if (data.isOk) {
+                    $('#waypoints').html(data.content);
+                    waypointByID = data.waypointByID;
+                    activateWaypoints();
+                } else {
+                    alert(data.message);
+                }
+            }, 'json');
+        } else {
+            alert('Could not find geocoordinates for the following reason: ' + status);
+        }
+    });
+}
+$('#searchWaypoints').click(searchWaypoints);
+$('#address').keydown(function(e) {
+    if (e.keyCode == 13) searchWaypoints();
+});
+
+
+ 
+    function activateWaypoints() {
+        // Add waypoint click handler
+        $('.waypoint').each(function () {
+            $(this).click(function() {
+            	currentObject = $(this); 
+                var waypoint = waypointByID[this.id];
+				var ggPoint = new BMap.Point(waypoint.lng,waypoint.lat);
+                var convertor = new BMap.Convertor();
+                var pointArr = [];
+				pointArr.push(ggPoint);
+				convertor.translate(pointArr, 1, 5, function (data)
+				{
+					if(data.status === 0) {
+       				marker = new BMap.Marker(data.points[0]);
+        			//var label = new BMap.Label("当前选中点",{offset:new BMap.Size(20,-10)});
+			        //marker.setLabel(label); //添加百度label
+			       // marker.setAnimation(BMAP_ANIMATION_BOUNCE); //跳动的动画
+			        marker.enableDragging();
+			        
+			        marker.addEventListener("dragend", function() {
+                  var position = marker.getPosition();
+                  waypoint.lat = position.lng;
+                  waypoint.lng = position.lat;
+                  alert("拖动" + waypoint.name+"至位置("+waypoint.lat + "," + waypoint.lng+")");  
+                
+                //提交数据库不成功
+                currentObject.html(waypoint.name +
+                   ' (' + waypoint.lat +
+                    ', ' + waypoint.lng + ')');
+                $('#saveWaypoints').removeAttr('disabled');
+              });
+	                map.addOverlay(marker);
+	                map.setCenter(data.points[0]);
+      			}
+				});
+            }).hover(
+                function () {this.className = this.className.replace('OFF', 'ON');},
+                function () {this.className = this.className.replace('ON', 'OFF');}
+            );
+        });
+    }
+    
+   
+    
+    $('#saveWaypoints').click(function () {
+        var waypointStrings = [];
+        for (id in waypointByID) {
+            waypoint = waypointByID[id];
+            waypointStrings.push(id + ' ' + waypoint.lng + ' ' + waypoint.lat);
+        };
+        $.post("{% url 'waypoints-save' %}",
+        {
+            waypointsPayload: waypointStrings.join('\n')
+        }, function (data) {
+            if (data.isOk) {
+                $('#saveWaypoints').attr('disabled', 'disabled');
+            } else {
+                alert(data.message);
+            }
+        }, 'json');
+    });
+    activateWaypoints();
+});
+
+</script>
+<style>
+    body {font-family: sans-serif}
+    #map {width: 500px; height: 300px}
+    #waypoints {overflow: auto; width: 500px; height: 100px}
+    .linkOFF {color: darkblue}
+    .linkON {color: white; background-color: darkblue}
+</style>
+</head>
+
+<body onload='initialize()'>
+    <div id=map></div>
+    <div id=waypoints>
+        {{content}}
+    </div>
+    <input id=saveWaypoints type=button value=保存 disabled=disabled>
+    <br>
+    <br>
+    <br>
+    <input id=address value='Chicago, IL'>
+    <input id=searchWaypoints type=button value='按到目标点的距离排序'>
+
+
+</body>
+</html>
